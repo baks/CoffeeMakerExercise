@@ -6,10 +6,4 @@
         void Pause();
         void Resume();
     }
-
-    public interface IBrewingCycleListener
-    {
-        void BrewingCycleStarted();
-        void BrewingCycleCompleted();
-    }
 }

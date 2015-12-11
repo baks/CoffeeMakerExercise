@@ -1,8 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Automatonymous;
+using CoffeeMaker.Events;
 using CoffeeMaker.Hardware;
 using CoffeeMaker.Hardware.Status;
+using CoffeeMaker.Infrastructure;
 
 namespace CoffeeMaker
 {
@@ -11,22 +14,28 @@ namespace CoffeeMaker
         public State CurrentState { get; set; }
     }
 
-    public sealed class PotWatcher : AutomatonymousStateMachine<PotWatcherState>, IDisposable
+    public sealed class PotWatcher : AutomatonymousStateMachine<PotWatcherState>, IObservable<CoffeeInPot>,
+        IObservable<PotEmpty>, IObservable<PotRemoved>, IObservable<PotReturned>, IDisposable
     {
         private readonly ICoffeeMakerAPI coffeeMakerApi;
-        private readonly IPotContentListener potContentListener;
-        private readonly IPotPositionListener potPositionListener;
         private readonly PotWatcherState potWatcherState;
+
+        private readonly IList<IObserver<CoffeeInPot>> coffeeInPotObservers;
+        private readonly IList<IObserver<PotEmpty>> potEmptyObservers;
+        private readonly IList<IObserver<PotRemoved>> potRemovedObservers;
+        private readonly IList<IObserver<PotReturned>> potReturnedObservers;
 
         private bool watch;
 
         private bool potEmpty;
 
-        public PotWatcher(ICoffeeMakerAPI coffeeMakerApi, IPotContentListener potContentListener, IPotPositionListener potPositionListener)
+        public PotWatcher(ICoffeeMakerAPI coffeeMakerApi)
         {
             this.coffeeMakerApi = coffeeMakerApi;
-            this.potContentListener = potContentListener;
-            this.potPositionListener = potPositionListener;
+            this.coffeeInPotObservers = new List<IObserver<CoffeeInPot>>();
+            this.potEmptyObservers = new List<IObserver<PotEmpty>>();
+            this.potRemovedObservers = new List<IObserver<PotRemoved>>();
+            this.potReturnedObservers = new List<IObserver<PotReturned>>();
             this.potWatcherState = new PotWatcherState();
             this.potEmpty = true;
 
@@ -86,7 +95,7 @@ namespace CoffeeMaker
             {
                 if (!potEmpty)
                 {
-                    potContentListener.PotEmpty();
+                    Subscriber.NotifyObserversAbout(potEmptyObservers, new PotEmpty());
                 }
                 potEmpty = true;
             }
@@ -94,7 +103,7 @@ namespace CoffeeMaker
             {
                 if (potEmpty)
                 {
-                    potContentListener.CoffeeInPot();
+                    Subscriber.NotifyObserversAbout(coffeeInPotObservers, new CoffeeInPot());
                 }
                 potEmpty = false;
             }
@@ -117,12 +126,36 @@ namespace CoffeeMaker
 
         private void NotifyPotRemoved(BehaviorContext<PotWatcherState> context)
         {
-            potPositionListener.PotRemovedFromWarmerPlate();
+            Subscriber.NotifyObserversAbout(potRemovedObservers, new PotRemoved());
         }
 
         private void NotifyPotReturned(BehaviorContext<PotWatcherState> context)
         {
-            potPositionListener.PotReturnedToWarmerPlate();
+            Subscriber.NotifyObserversAbout(potReturnedObservers, new PotReturned());
+        }
+
+        public IDisposable Subscribe(IObserver<CoffeeInPot> observer)
+        {
+            Subscriber.Subscribe(coffeeInPotObservers, observer);
+            return Unsubscriber.CreateUnsubscriber(coffeeInPotObservers, observer);
+        }
+
+        public IDisposable Subscribe(IObserver<PotEmpty> observer)
+        {
+            Subscriber.Subscribe(potEmptyObservers, observer);
+            return Unsubscriber.CreateUnsubscriber(potEmptyObservers, observer);
+        }
+
+        public IDisposable Subscribe(IObserver<PotRemoved> observer)
+        {
+            Subscriber.Subscribe(potRemovedObservers, observer);
+            return Unsubscriber.CreateUnsubscriber(potRemovedObservers, observer);
+        }
+
+        public IDisposable Subscribe(IObserver<PotReturned> observer)
+        {
+            Subscriber.Subscribe(potReturnedObservers, observer);
+            return Unsubscriber.CreateUnsubscriber(potReturnedObservers, observer);
         }
     }
 }

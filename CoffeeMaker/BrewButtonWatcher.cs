@@ -1,21 +1,24 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
+using CoffeeMaker.Events;
 using CoffeeMaker.Hardware;
 using CoffeeMaker.Hardware.Status;
+using CoffeeMaker.Infrastructure;
 
 namespace CoffeeMaker
 {
-    public sealed class BrewButtonWatcher : IDisposable
+    public sealed class BrewButtonWatcher : IObservable<BrewButtonPushed>, IDisposable
     {
         private readonly ICoffeeMakerAPI coffeeMakerApi;
-        private readonly IBrewButtonListener listener;
+        private readonly IList<IObserver<BrewButtonPushed>> brewButtonPushedObservers;
 
         private bool watch = false;
 
-        public BrewButtonWatcher(ICoffeeMakerAPI coffeeMakerApi, IBrewButtonListener listener)
+        public BrewButtonWatcher(ICoffeeMakerAPI coffeeMakerApi)
         {
             this.coffeeMakerApi = coffeeMakerApi;
-            this.listener = listener;
+            this.brewButtonPushedObservers = new List<IObserver<BrewButtonPushed>>();
         }
 
         public void Start()
@@ -28,7 +31,7 @@ namespace CoffeeMaker
         {
             if (coffeeMakerApi.GetBrewButtonStatus() == BrewButtonStatus.BREW_BUTTON_PUSHED)
             {
-                listener.BrewButtonPushed();
+                Subscriber.NotifyObserversAbout(brewButtonPushedObservers, new BrewButtonPushed());
             }
         }
 
@@ -44,6 +47,12 @@ namespace CoffeeMaker
                 CheckBrewButton();
                 Task.Delay(TimeSpan.FromSeconds(1));
             }
+        }
+
+        public IDisposable Subscribe(IObserver<BrewButtonPushed> observer)
+        {
+            Subscriber.Subscribe(brewButtonPushedObservers, observer);
+            return Unsubscriber.CreateUnsubscriber(brewButtonPushedObservers, observer);
         }
     }
 }

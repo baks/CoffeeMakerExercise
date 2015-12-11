@@ -1,4 +1,6 @@
-﻿using CoffeeMaker.Hardware;
+﻿using System;
+using CoffeeMaker.Events;
+using CoffeeMaker.Hardware;
 using CoffeeMaker.Hardware.Status;
 using NSubstitute;
 using NUnit.Framework;
@@ -8,17 +10,26 @@ namespace CoffeeMaker.Tests
     public class PotWatcherTests
     {
         private ICoffeeMakerAPI coffeeMakerApi;
-        private IPotContentListener potContentListener;
-        private IPotPositionListener potPositionListener;
+        private IObserver<CoffeeInPot> coffeeInPotObserver;
+        private IObserver<PotEmpty> potEmptyObserver; 
+        private IObserver<PotRemoved> potRemovedObserver;
+        private IObserver<PotReturned> potReturnedObserver;   
         private PotWatcher sut;
 
         [SetUp]
         public void PerTestSetUp()
         {
             coffeeMakerApi = Substitute.For<ICoffeeMakerAPI>();
-            potContentListener = Substitute.For<IPotContentListener>();
-            potPositionListener = Substitute.For<IPotPositionListener>();
-            sut = new PotWatcher(coffeeMakerApi, potContentListener, potPositionListener);
+            potEmptyObserver = Substitute.For<IObserver<PotEmpty>>();
+            coffeeInPotObserver = Substitute.For<IObserver<CoffeeInPot>>();
+            potRemovedObserver = Substitute.For<IObserver<PotRemoved>>();
+            potReturnedObserver = Substitute.For<IObserver<PotReturned>>();
+            sut = new PotWatcher(coffeeMakerApi);
+
+            sut.Subscribe(coffeeInPotObserver);
+            sut.Subscribe(potEmptyObserver);
+            sut.Subscribe(potRemovedObserver);
+            sut.Subscribe(potReturnedObserver);
         }
 
         [Test]
@@ -26,7 +37,7 @@ namespace CoffeeMaker.Tests
         {
             RemovePot();
 
-            potPositionListener.Received(1).PotRemovedFromWarmerPlate();
+            potRemovedObserver.Received(1).OnNext(Arg.Any<PotRemoved>());
         }
 
         [Test]
@@ -35,7 +46,7 @@ namespace CoffeeMaker.Tests
             RemovePot();
             ReturnNotEmptyPot();
 
-            potPositionListener.Received(1).PotReturnedToWarmerPlate();
+            potReturnedObserver.Received(1).OnNext(Arg.Any<PotReturned>());
         }
 
         [Test]
@@ -44,7 +55,7 @@ namespace CoffeeMaker.Tests
             RemovePot();
             ReturnEmptyPot();
 
-            potPositionListener.Received(1).PotReturnedToWarmerPlate();
+            potReturnedObserver.Received(1).OnNext(Arg.Any<PotReturned>());
         }
 
         [Test]
@@ -52,7 +63,7 @@ namespace CoffeeMaker.Tests
         {
             ReturnNotEmptyPot();
 
-            potPositionListener.Received(1).PotReturnedToWarmerPlate();
+            potReturnedObserver.Received(1).OnNext(Arg.Any<PotReturned>());
         }
 
         [Test]
@@ -62,7 +73,7 @@ namespace CoffeeMaker.Tests
             sut.CheckPotPosition();
             sut.CheckPotPosition();
 
-            potPositionListener.Received(1).PotRemovedFromWarmerPlate();
+            potRemovedObserver.Received(1).OnNext(Arg.Any<PotRemoved>());
         }
 
         [Test]
@@ -74,7 +85,7 @@ namespace CoffeeMaker.Tests
             sut.CheckPotPosition();
             sut.CheckPotPosition();
 
-            potPositionListener.Received(1).PotReturnedToWarmerPlate();
+            potReturnedObserver.Received(1).OnNext(Arg.Any<PotReturned>());
         }
 
         [Test]
@@ -83,7 +94,7 @@ namespace CoffeeMaker.Tests
             CoffeeInPot();
             PotEmpty();
 
-            potContentListener.Received(1).PotEmpty();
+            potEmptyObserver.Received(1).OnNext(Arg.Any<PotEmpty>());
         }
 
         [Test]
@@ -91,7 +102,7 @@ namespace CoffeeMaker.Tests
         {
             CoffeeInPot();
 
-            potContentListener.Received(1).CoffeeInPot();
+            coffeeInPotObserver.Received(1).OnNext(Arg.Any<CoffeeInPot>());
         }
 
         [Test]
@@ -102,7 +113,7 @@ namespace CoffeeMaker.Tests
             sut.CheckPotContent();
             sut.CheckPotContent();
 
-            potContentListener.Received(1).PotEmpty();
+            potEmptyObserver.Received(1).OnNext(Arg.Any<PotEmpty>());
         }
 
         [Test]
@@ -112,7 +123,7 @@ namespace CoffeeMaker.Tests
             sut.CheckPotContent();
             sut.CheckPotContent();
 
-            potContentListener.Received(1).CoffeeInPot();
+            coffeeInPotObserver.Received(1).OnNext(Arg.Any<CoffeeInPot>());
         }
 
         private void RemovePot()

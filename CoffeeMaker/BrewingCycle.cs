@@ -1,7 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
 using Automatonymous;
+using CoffeeMaker.Events;
 using CoffeeMaker.Hardware;
 using CoffeeMaker.Hardware.Status;
+using CoffeeMaker.Infrastructure;
 
 namespace CoffeeMaker
 {
@@ -10,28 +13,18 @@ namespace CoffeeMaker
         public State CurrentState { get; set; }
     }
 
-    public class NullBrewingCycleListener : IBrewingCycleListener
-    {
-        public void BrewingCycleStarted()
-        {
-        }
-
-        public void BrewingCycleCompleted()
-        {
-        }
-    }
-
-    public sealed class BrewingCycle : AutomatonymousStateMachine<BrewingCycleState>, IBrewingCycle, IBoilerListener
+    public sealed class BrewingCycle : AutomatonymousStateMachine<BrewingCycleState>, IObservable<BrewingCycleStarted>, IObservable<BrewingCycleCompleted>, IBrewingCycle, IObserver<BoilerEmpty>
     {
         private readonly ICoffeeMakerAPI coffeeMakerApi;
+        private readonly IList<IObserver<BrewingCycleStarted>> brewingCycleStartedObservers;
+        private readonly IList<IObserver<BrewingCycleCompleted>> brewingCycleCompletedObservers;
         private readonly BrewingCycleState state;
-
-        private IBrewingCycleListener brewingCycleListener;
 
         public BrewingCycle(ICoffeeMakerAPI coffeeMakerApi)
         {
             this.coffeeMakerApi = coffeeMakerApi;
-            this.brewingCycleListener = new NullBrewingCycleListener();
+            this.brewingCycleStartedObservers = new List<IObserver<BrewingCycleStarted>>();
+            this.brewingCycleCompletedObservers = new List<IObserver<BrewingCycleCompleted>>();
             this.state = new BrewingCycleState();
 
             InstanceState(x => x.CurrentState);
@@ -74,24 +67,11 @@ namespace CoffeeMaker
         public Event PauseCycle { get; private set; }
         public Event ResumeCycle { get; private set; }
 
-        public void AddListener(IBrewingCycleListener brewingCycleListener)
-        {
-            if (brewingCycleListener == null)
-            {
-                throw new ArgumentNullException(nameof(brewingCycleListener));
-            }
-            if (this.brewingCycleListener.GetType() != typeof(NullBrewingCycleListener))
-            {
-                throw new InvalidOperationException("Cannot add new listener after assigning other");
-            }
-            this.brewingCycleListener = brewingCycleListener;
-        }
-
         public void Start(IStartBrewingRequest startBrewingRequest)
         {
             if (CanStartBrewingCycle(startBrewingRequest))
             {
-                brewingCycleListener.BrewingCycleStarted();
+                Subscriber.NotifyObserversAbout(brewingCycleStartedObservers, new BrewingCycleStarted());
                 this.RaiseEvent(state, StartCycle);
                 coffeeMakerApi.SetReliefValveState(ReliefValveState.VALVE_CLOSED);
                 coffeeMakerApi.SetBoilerState(BoilerState.BOILER_ON);
@@ -106,11 +86,6 @@ namespace CoffeeMaker
         public void Resume()
         {
             this.RaiseEvent(state, ResumeCycle);
-        }
-
-        public void BoilerEmpty()
-        {
-            this.RaiseEvent(state, BoilerIsEmpty);
         }
 
         private void ResumeBrewingCycle(BehaviorContext<BrewingCycleState> context)
@@ -129,7 +104,7 @@ namespace CoffeeMaker
         {
             coffeeMakerApi.SetReliefValveState(ReliefValveState.VALVE_CLOSED);
             coffeeMakerApi.SetBoilerState(BoilerState.BOILER_OFF);
-            brewingCycleListener.BrewingCycleCompleted();
+            Subscriber.NotifyObserversAbout(brewingCycleCompletedObservers, new BrewingCycleCompleted());
         }
 
         private bool CanStartBrewingCycle(IStartBrewingRequest startBrewingRequest)
@@ -146,6 +121,31 @@ namespace CoffeeMaker
             }
 
             return true;
+        }
+
+        public void OnNext(BoilerEmpty value)
+        {
+            this.RaiseEvent(state, BoilerIsEmpty);
+        }
+
+        public void OnError(Exception error)
+        {
+        }
+
+        public void OnCompleted()
+        {
+        }
+
+        public IDisposable Subscribe(IObserver<BrewingCycleStarted> observer)
+        {
+            Subscriber.Subscribe(brewingCycleStartedObservers, observer);
+            return Unsubscriber.CreateUnsubscriber(brewingCycleStartedObservers, observer);
+        }
+
+        public IDisposable Subscribe(IObserver<BrewingCycleCompleted> observer)
+        {
+            Subscriber.Subscribe(brewingCycleCompletedObservers, observer);
+            return Unsubscriber.CreateUnsubscriber(brewingCycleCompletedObservers, observer);
         }
     }
 }

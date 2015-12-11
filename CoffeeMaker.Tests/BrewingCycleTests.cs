@@ -1,4 +1,6 @@
-﻿using Automatonymous;
+﻿using System;
+using Automatonymous;
+using CoffeeMaker.Events;
 using CoffeeMaker.Hardware;
 using CoffeeMaker.Hardware.Status;
 using NSubstitute;
@@ -14,7 +16,8 @@ namespace CoffeeMaker.Tests
 
         private ICoffeeMakerAPI coffeeMakerApi;
         private IStartBrewingRequest startBrewingRequest;
-        private IBrewingCycleListener brewingCycleListener;
+        private IObserver<BrewingCycleStarted> brewingCycleStartedObserver;
+        private IObserver<BrewingCycleCompleted> brewingCycleCompletedObserver;  
         private BrewingCycle sut;
 
         [SetUp]
@@ -23,9 +26,11 @@ namespace CoffeeMaker.Tests
             ResetStateToDefault(NotChangedByTest);
             coffeeMakerApi = Substitute.For<ICoffeeMakerAPI>();
             startBrewingRequest = Substitute.For<IStartBrewingRequest>();
-            brewingCycleListener = Substitute.For<IBrewingCycleListener>();
+            brewingCycleStartedObserver = Substitute.For<IObserver<BrewingCycleStarted>>();
+            brewingCycleCompletedObserver = Substitute.For<IObserver<BrewingCycleCompleted>>();
             sut = new BrewingCycle(coffeeMakerApi);
-            sut.AddListener(brewingCycleListener);
+            sut.Subscribe(brewingCycleStartedObserver);
+            sut.Subscribe(brewingCycleCompletedObserver);
         }
 
         [Test]
@@ -35,7 +40,7 @@ namespace CoffeeMaker.Tests
                 .Then(Boiling)
                 .Do(ci =>
                 {
-                    sut.BoilerEmpty();
+                    sut.OnNext(new BoilerEmpty());
                 });
             coffeeMakerApi.When(api => api.SetBoilerState(BoilerState.BOILER_OFF))
                 .Expect(Boiling);
@@ -107,17 +112,17 @@ namespace CoffeeMaker.Tests
         {
             StartBrewingCycle();
 
-            sut.BoilerEmpty();
+            sut.OnNext(new BoilerEmpty());
 
-            brewingCycleListener.Received(1).BrewingCycleCompleted();
+            brewingCycleCompletedObserver.Received(1).OnNext(Arg.Any<BrewingCycleCompleted>());
         }
 
         [Test]
         public void DoesNotNotifyAboutBrewingCycleCompletedWhenCycleNotStarted()
         {
-            sut.BoilerEmpty();
+            sut.OnNext(new BoilerEmpty());
 
-            brewingCycleListener.DidNotReceive().BrewingCycleCompleted();
+            brewingCycleCompletedObserver.DidNotReceive().OnNext(Arg.Any<BrewingCycleCompleted>());
         }
 
         [Test]
@@ -156,7 +161,7 @@ namespace CoffeeMaker.Tests
         {
             StartBrewingCycle();
 
-            brewingCycleListener.Received(1).BrewingCycleStarted();
+            brewingCycleStartedObserver.Received(1).OnNext(Arg.Any<BrewingCycleStarted>());
         }
 
         private void StartBrewingCycle()

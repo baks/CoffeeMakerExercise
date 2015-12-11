@@ -39,6 +39,18 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Reactive.Core, Version=2.2.5.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Rx-Core.2.2.5\lib\net45\System.Reactive.Core.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Reactive.Interfaces, Version=2.2.5.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Rx-Interfaces.2.2.5\lib\net45\System.Reactive.Interfaces.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Reactive.Linq, Version=2.2.5.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\Rx-Linq.2.2.5\lib\net45\System.Reactive.Linq.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -50,15 +62,20 @@
     <Compile Include="BrewButtonWatcher.cs" />
     <Compile Include="BrewingCycle.cs" />
     <Compile Include="CoffeeMaker.cs" />
+    <Compile Include="Events\BoilerEmpty.cs" />
+    <Compile Include="Events\BrewButtonPushed.cs" />
+    <Compile Include="Events\BrewingCycleCompleted.cs" />
+    <Compile Include="Events\BrewingCycleStarted.cs" />
+    <Compile Include="Events\CoffeeInPot.cs" />
+    <Compile Include="Events\PotEmpty.cs" />
+    <Compile Include="Events\PotRemoved.cs" />
+    <Compile Include="Events\PotReturned.cs" />
+    <Compile Include="Infrastructure\Subscriber.cs" />
     <Compile Include="PotWatcher.cs" />
+    <Compile Include="Infrastructure\Unsubscriber.cs" />
     <Compile Include="WarmingCycle.cs" />
-    <Compile Include="IBoilerListener.cs" />
-    <Compile Include="IBrewButtonListener.cs" />
     <Compile Include="IBrewingCycle.cs" />
-    <Compile Include="IPotContentListener.cs" />
-    <Compile Include="IPotWatcher.cs" />
     <Compile Include="IStartBrewingRequest.cs" />
-    <Compile Include="IPotPositionListener.cs" />
     <Compile Include="IWarmingCycle.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="StartBrewingRequest.cs" />

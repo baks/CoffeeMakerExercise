@@ -1,4 +1,5 @@
-﻿using CoffeeMaker.Hardware;
+﻿using CoffeeMaker.Events;
+using CoffeeMaker.Hardware;
 using CoffeeMaker.Hardware.Status;
 using NSubstitute;
 using NUnit.Framework;
@@ -25,7 +26,7 @@ namespace CoffeeMaker.Tests
         [Test]
         public void PushingBrewButtonStartsBrewCycle()
         {
-            sut.BrewButtonPushed();
+            sut.OnNext(new BrewButtonPushed());
 
             brewingCycle.Received(1).Start(Arg.Any<IStartBrewingRequest>());
         }
@@ -33,7 +34,7 @@ namespace CoffeeMaker.Tests
         [Test]
         public void TurnsLightOffWhenBrewingCycleStarts()
         {
-            sut.BrewingCycleStarted();
+            sut.OnNext(new BrewingCycleStarted());
 
             AssertLightTurnedOff();
         }
@@ -41,7 +42,7 @@ namespace CoffeeMaker.Tests
         [Test]
         public void TurnsLightOnWhenBrewingCycleCompletes()
         {
-            sut.BrewingCycleCompleted();
+            sut.OnNext(new BrewingCycleCompleted());
 
             AssertLightTurnedOn();
         }
@@ -49,7 +50,7 @@ namespace CoffeeMaker.Tests
         [Test]
         public void TurnsLightOffWhenPotEmptyAfterBrewingCycleCompleted()
         {
-            sut.PotEmpty();
+            sut.OnNext(new PotEmpty());
 
             AssertLightTurnedOff();
         }
@@ -57,8 +58,8 @@ namespace CoffeeMaker.Tests
         [Test]
         public void PausesBrewingCycleWhenPotRemovedFromWarmerPlate()
         {
-            sut.BrewingCycleStarted();
-            sut.PotRemovedFromWarmerPlate();
+            sut.OnNext(new BrewingCycleStarted());
+            sut.OnNext(new PotRemoved());
 
             brewingCycle.Received(1).Pause();
         }
@@ -66,8 +67,8 @@ namespace CoffeeMaker.Tests
         [Test]
         public void ResumesBrewingCycleWhenPotReturnedToWarmerPlate()
         {
-            sut.BrewingCycleStarted();
-            sut.PotReturnedToWarmerPlate();
+            sut.OnNext(new BrewingCycleStarted());
+            sut.OnNext(new PotReturned());
 
             brewingCycle.Received(1).Resume();
         }
@@ -75,7 +76,7 @@ namespace CoffeeMaker.Tests
         [Test]
         public void DoesNotPauseBrewingCycleWhenNotBrewing()
         {
-            sut.PotRemovedFromWarmerPlate();
+            sut.OnNext(new PotRemoved());
 
             brewingCycle.DidNotReceive().Pause();
         }
@@ -83,7 +84,7 @@ namespace CoffeeMaker.Tests
         [Test]
         public void DoesNotResumeBrewingCycleWhenNotBrewing()
         {
-            sut.PotReturnedToWarmerPlate();
+            sut.OnNext(new PotReturned());
 
             brewingCycle.DidNotReceive().Resume();
         }
@@ -91,10 +92,10 @@ namespace CoffeeMaker.Tests
         [Test]
         public void DoesNotStartAnotherBrewingCycleWhileBrewing()
         {
-            sut.BrewButtonPushed();
-            sut.BrewingCycleStarted();
+            sut.OnNext(new BrewButtonPushed());
+            sut.OnNext(new BrewingCycleStarted());
 
-            sut.BrewButtonPushed();
+            sut.OnNext(new BrewButtonPushed());
 
             brewingCycle.Received(1).Start(Arg.Any<IStartBrewingRequest>());
         }
@@ -102,10 +103,10 @@ namespace CoffeeMaker.Tests
         [Test]
         public void DoesNotTurnOffLightWhileBrewing()
         {
-            sut.BrewingCycleStarted();
+            sut.OnNext(new BrewingCycleStarted());
             coffeeMakerApi.ClearReceivedCalls();
 
-            sut.PotEmpty();
+            sut.OnNext(new PotEmpty());
 
             coffeeMakerApi.DidNotReceive().SetIndicatorState(IndicatorState.INDICATOR_OFF);
         }
@@ -113,7 +114,7 @@ namespace CoffeeMaker.Tests
         [Test]
         public void WarmsCoffeeWhenCoffeeInPot()
         {
-            sut.CoffeeInPot();
+            sut.OnNext(new CoffeeInPot());
 
             warmingCycle.Received(1).Start();
         }
@@ -121,7 +122,7 @@ namespace CoffeeMaker.Tests
         [Test]
         public void StopWarmingCoffeeWhenPotEmpty()
         {
-            sut.PotEmpty();
+            sut.OnNext(new PotEmpty());
 
             warmingCycle.Received(1).Stop();
         }
@@ -129,8 +130,8 @@ namespace CoffeeMaker.Tests
         [Test]
         public void PausesWarmingCycleWhenPotRemoved()
         {
-            sut.CoffeeInPot();
-            sut.PotRemovedFromWarmerPlate();
+            sut.OnNext(new CoffeeInPot());
+            sut.OnNext(new PotRemoved());
 
             warmingCycle.Received(1).Pause();
         }
@@ -138,7 +139,7 @@ namespace CoffeeMaker.Tests
         [Test]
         public void DoesNotPauseWarmingCycleWhenCycleNotStarted()
         {
-            sut.PotRemovedFromWarmerPlate();
+            sut.OnNext(new PotRemoved());
 
             warmingCycle.DidNotReceive().Pause();
         }
@@ -146,9 +147,9 @@ namespace CoffeeMaker.Tests
         [Test]
         public void ResumesWarmingCycleWhenPotReturned()
         {
-            sut.CoffeeInPot();
-            sut.PotRemovedFromWarmerPlate();
-            sut.PotReturnedToWarmerPlate();
+            sut.OnNext(new CoffeeInPot());
+            sut.OnNext(new PotRemoved());
+            sut.OnNext(new PotReturned());
 
             warmingCycle.Received(1).Resume();
         }
@@ -156,7 +157,7 @@ namespace CoffeeMaker.Tests
         [Test]
         public void DoesNotResumeWarmingCycleWhenCycleNotStarted()
         {
-            sut.PotReturnedToWarmerPlate();
+            sut.OnNext(new PotReturned());
 
             warmingCycle.DidNotReceive().Resume();
         }

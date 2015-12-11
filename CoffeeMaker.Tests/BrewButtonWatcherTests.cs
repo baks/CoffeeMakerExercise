@@ -1,4 +1,6 @@
-﻿using CoffeeMaker.Hardware;
+﻿using System;
+using CoffeeMaker.Events;
+using CoffeeMaker.Hardware;
 using CoffeeMaker.Hardware.Status;
 using NSubstitute;
 using NUnit.Framework;
@@ -8,15 +10,16 @@ namespace CoffeeMaker.Tests
     public class BrewButtonWatcherTests
     {
         private ICoffeeMakerAPI coffeeMakerApi;
-        private IBrewButtonListener brewButtonListener;
+        private IObserver<BrewButtonPushed> brewButtonPushedObserver; 
         private BrewButtonWatcher sut;
 
         [SetUp]
         public void PerTestSetUp()
         {
             coffeeMakerApi = Substitute.For<ICoffeeMakerAPI>();
-            brewButtonListener = Substitute.For<IBrewButtonListener>();
-            sut = new BrewButtonWatcher(coffeeMakerApi, brewButtonListener);
+            brewButtonPushedObserver = Substitute.For<IObserver<BrewButtonPushed>>();
+            sut = new BrewButtonWatcher(coffeeMakerApi);
+            sut.Subscribe(brewButtonPushedObserver);
         }
 
         [Test]
@@ -25,7 +28,7 @@ namespace CoffeeMaker.Tests
             coffeeMakerApi.GetBrewButtonStatus().Returns(BrewButtonStatus.BREW_BUTTON_PUSHED);
             sut.CheckBrewButton();
 
-            brewButtonListener.Received(1).BrewButtonPushed();
+            brewButtonPushedObserver.Received(1).OnNext(Arg.Any<BrewButtonPushed>());
         }
 
         [Test]
@@ -36,7 +39,7 @@ namespace CoffeeMaker.Tests
             sut.CheckBrewButton();
             sut.CheckBrewButton();
 
-            brewButtonListener.Received(3).BrewButtonPushed();
+            brewButtonPushedObserver.Received(3).OnNext(Arg.Any<BrewButtonPushed>());
         }
     }
 }
